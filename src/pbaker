@@ -1,0 +1,260 @@
+#!/usr/bin/lua
+
+--[[
+
+Copyright (C) 2013 augmented logic dev@augmentedlogic.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
+and associated documentation files (the "Software"), to deal in the Software without restriction, 
+including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, 
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial 
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN 
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+--]]
+
+require 'posix'
+
+
+local VERSION = "0.1"
+local config = {}
+
+-- @param command
+function stdout(command)
+  local f = io.popen(command)
+  local l = f:read("*a")
+  f:close()
+  print(l)
+return l
+end
+
+
+---
+function help()
+local out = [[
+pbaker ]]..VERSION..[[  <dev@augmentedlogic.com>
+
+Usage: pbaker [options]
+Options:
+    -f,--format  <image format>, default is "png"
+    -i,--image   <path/to/image> image file 
+    -t,--target  <path/to/directory> target directory
+    -q, --quiet  be quiet
+    -m, --imtmp  set the imagemagick temporary directory
+    -h, --help   prints this help
+
+]]
+
+io.write(out)
+end
+
+
+---
+-- simple implementation of getopt
+--
+function getargs(arg)
+    local config = {}
+
+    if arg[1] == "--help" or  arg[1] == "-h" then
+        help()
+        os.exit()
+    else
+     --- we do a pretty simple version of getopt here
+     for i=1,table.getn(arg) do
+         if arg[i] == "--help" or arg[i] == "-h" then
+            help()
+            os.exit()
+         elseif arg[i] == "--image" or arg[i] == "-i" then
+            config.image = arg[i+1]
+         elseif arg[i] == "--target" or arg[i] == "-t" then
+            config.target = arg[i+1]
+         elseif arg[i] == "--format" or arg[i] == "-f" then
+            config.format = arg[i+1]
+         elseif arg[i] == "--quiet" or arg[i] == "-q" then
+            config.quiet = true
+         elseif arg[i] == "--imtmp" or arg[i] == "-m" then
+            config.imtmp = arg[i+1]
+         end
+    end
+
+end
+
+return config
+end
+
+
+---
+-- wraps imagemagick's identify
+-- @param path
+-- @return w,h
+function identify(path)
+    local t, w,h  = string.match(stdout("identify "..path), "%w+%s(%w+)%s(%d+)x(%d+)%s")
+return w,h
+end
+
+
+function defaults(config)
+         -- TODO: we set defaults or exit if values are missing
+         if not config.target then
+            -- exit error "need to specify output directory"
+            print("Missing parameter: no target directory defined.")
+            os.exit()
+         elseif not config.image then
+            print("Missing parameter: no image defined.")
+            os.exit()
+         else
+            local file = io.open(config.image)
+            if file then
+               file:close()
+            else
+               print("Image not found.")
+               os.exit()
+            end
+         end
+         config.format = config.format or "png"
+
+return config
+end
+
+
+function message(msg)
+    if not config.quiet then
+       io.write(msg.."\n")
+    end 
+end
+
+
+
+-- 
+config = getargs(arg)
+config = defaults(config)
+
+
+config.tmpdir = "/tmp/pbaker."..os.time()
+--config.tmpdir = "/tmp/pbakerd"
+config.target = config.target.."/"
+
+TARGET_DIR = config.target 
+
+
+-- TODO : clean up, remove the hardcoded stuff  and use lua posix proper
+posix.mkdir(config.tmpdir)
+
+
+---- start image process
+
+SIZES = { 1024, 2048, 4096, 8192, 16384 , 32768 }
+
+x,y = identify(config.image)
+print(x,y)
+
+function define_maxlevel(x)
+for i, v in ipairs(SIZES) do
+    if tonumber(x) < v then
+       return i
+    end
+end
+end
+
+maxlevel = define_maxlevel(x)
+print("maximum level is: "..maxlevel)
+
+--os.exit()
+
+
+posix.mkdir(config.tmpdir.."/padded")
+
+
+message("resizing and padding image: ")
+message("level 2")
+stdout("convert "..config.image.." -resize 1024x -background black -gravity center -extent 1024x1024 "..config.tmpdir.."/padded/level2.jpg")
+message("level 3")
+stdout("convert "..config.image.." -resize 2048x -background black -gravity center -extent 2048x2048 "..config.tmpdir.."/padded/level3.jpg")
+message("level 4")
+stdout("convert "..config.image.." -resize 4096x -background black -gravity center -extent 4096x4096 "..config.tmpdir.."/padded/level4.jpg")
+message("level 5")
+stdout("convert "..config.image.." -resize 8192x -background black -gravity center -extent 8192x8192 "..config.tmpdir.."/padded/level5.jpg")
+message("level 6")
+stdout("convert "..config.image.." -resize 16384x -background black -gravity center -extent 16384x16384 "..config.tmpdir.."/padded/level6.jpg")
+
+
+
+
+print("splitting images into tiles:")
+
+posix.mkdir(config.tmpdir.."/tiles2/")
+message("level 2")
+stdout("env MAGICK_TMPDIR=./tmpd convert -verbose -quality 85% -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level2.jpg "..config.tmpdir.."/tiles2/tile%03d.jpg")
+
+posix.mkdir(config.tmpdir.."/tiles3/")
+message("level 3")
+stdout("env MAGICK_TMPDIR=./tmpd convert -verbose -quality 85% -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level3.jpg "..config.tmpdir.."/tiles3/tile%03d.jpg")
+
+posix.mkdir(config.tmpdir.."/tiles4/")
+message("level 4")
+stdout("env MAGICK_TMPDIR=./tmpd convert -verbose -quality 85% -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level4.jpg "..config.tmpdir.."/tiles4/tile%03d.jpg")
+
+posix.mkdir(config.tmpdir.."/tiles5/")
+message("level 5")
+stdout("env MAGICK_TMPDIR=./tmpd convert -verbose -quality 85% -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level5.jpg "..config.tmpdir.."/tiles5/tile%03d.jpg")
+
+posix.mkdir(config.tmpdir.."/tiles6/")
+message("level 6")
+stdout("env MAGICK_TMPDIR=./tmpd convert -verbose -quality 85% -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level6.jpg "..config.tmpdir.."/tiles6/tile%03d.jpg")
+
+
+message("creating target directory")
+posix.mkdir(TARGET_DIR)
+
+
+local function fillup(n)
+   local n = tostring(n)
+   if #n == 1 then
+       n= "00"..n
+   elseif #n==2 then
+       n= "0"..n
+   elseif #n==3 then
+       n = n
+   end
+
+return n
+end
+
+local OFFSETS =  { 4, 8, 16 , 32 , 64 }
+local FOLDNUM = { 3, 7, 15 , 31 , 63 }
+local num_level = 1
+
+for level = 2, 6 do
+    local t_offsets = OFFSETS[num_level]
+    local t_foldnum = FOLDNUM[num_level]
+
+print("LEVEL "..level)
+posix.mkdir(TARGET_DIR.."/"..level.."/")
+for folder = 0, t_foldnum do
+t = folder
+print("folder: "..folder)
+for i=0, t_foldnum do
+  posix.mkdir(TARGET_DIR.."/"..level.."/"..folder.."/")
+  cmd = "mv "..config.tmpdir.."/tiles"..level.."/tile"..fillup(t)..".jpg "..TARGET_DIR..level.."/"..folder.."/"..i..".jpg"
+  stdout(cmd)
+  t = t + t_offsets
+end
+end
+
+num_level = num_level + 1
+
+end
+
+message("cleaning up temporary directories...")
+stdout("rm -Rf "..config.tmpdir.."  2> /dev/null")
+
+
