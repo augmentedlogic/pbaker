@@ -22,5 +22,8 @@ debian_package:
 	cp src/pbaker build/usr/bin/
 	fakeroot $(PROG) $(FLAGS) $(SOURCE) $(DEBTARGET_all)
 
+snapshot:
+	git archive master | bzip2 > pbaker-$(VERSION)-$(PACKAGE_VERSION).tar.bz2
+
 clean:
 	rm -Rf ./build/
