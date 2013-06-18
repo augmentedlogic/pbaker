@@ -45,7 +45,7 @@ pbaker ]]..VERSION..[[  <dev@augmentedlogic.com>
 
 Usage: pbaker [options]
 Options:
-    -f,--format  <image format>, default is "png"
+    -f,--format  <image format>, default is "jpg"
     -i,--image   <path/to/image> image file 
     -t,--target  <path/to/directory> target directory
     -q, --quiet  be quiet
@@ -120,7 +120,7 @@ function defaults(config)
                os.exit()
             end
          end
-         config.format = config.format or "png"
+         config.format = config.format or "jpg"
 
 return config
 end
@@ -140,7 +140,6 @@ config = defaults(config)
 
 
 config.tmpdir = "/tmp/pbaker."..os.time()
---config.tmpdir = "/tmp/pbakerd"
 config.target = config.target.."/"
 
 TARGET_DIR = config.target 
@@ -157,6 +156,8 @@ SIZES = { 1024, 2048, 4096, 8192, 16384 , 32768 }
 x,y = identify(config.image)
 print(x,y)
 
+
+
 function define_maxlevel(x)
 for i, v in ipairs(SIZES) do
     if tonumber(x) < v then
@@ -165,8 +166,10 @@ for i, v in ipairs(SIZES) do
 end
 end
 
+
 maxlevel = define_maxlevel(x)
 print("maximum level is: "..maxlevel)
+
 
 --os.exit()
 
