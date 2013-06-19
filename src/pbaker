@@ -33,10 +33,12 @@ local SIZES = { 0, 1024, 2048, 4096, 8192, 16384 }
 --- 
 -- @param command
 function stdout(command)
+  if config.verbose then
+      print(command)
+  end
   local f = io.popen(command)
   local l = f:read("*a")
   f:close()
-  -- print(l)
 return l
 end
 
@@ -56,7 +58,8 @@ Options:
     -n, --nice   set the nice level for the imagemagick commands
     -m, --imtmp  set the imagemagick temporary directory
     -h, --help   prints this help
-
+    -g, --quality set the image quality ( default is 85% )
+    -v, --verbose all imagemagick commands will be printed to stdout
 ]]
 
 io.write(out)
@@ -86,18 +89,23 @@ function getargs(arg)
             config.format = arg[i+1]
          elseif arg[i] == "--quiet" or arg[i] == "-q" then
             config.quiet = true
+         elseif arg[i] == "--verbose" or arg[i] == "-v" then
+            config.verbose = true
          elseif arg[i] == "--imtmp" or arg[i] == "-m" then
             config.imtmp = arg[i+1]
          elseif arg[i] == "--nice" or arg[i] == "-n" then
             config.nice = arg[i+1]
+         elseif arg[i] == "--quality" or arg[i] == "-g" then
+            config.quality = arg[i+1].."%"
          end
     end
+
 
          -- we set defaults or exit if values are missing
          if not config.target then
             -- exit error "need to specify output directory"
-            io.write("Missing parameter: no target directory defined.\n")
-            os.exit()
+            io.write("No target directory defined.\n")
+            os.exit() 
          elseif not config.image then
             io.write("Missing parameter: no image defined.\n")
             os.exit()
@@ -115,8 +123,7 @@ function getargs(arg)
          config.imtmp = config.imtmp or "./tmpd"
          config.tmpdir = "/tmp/pbaker."..os.time()
          config.target = config.target.."/"
-
-
+         config.quality = config.quality or "85%"
 end
 
 return config
@@ -159,7 +166,7 @@ function main()
     config = getargs(arg)
 
     posix.mkdir(config.tmpdir)
-
+    
 
     ---- start image process
     local x,y = identify(config.image)
@@ -168,9 +175,13 @@ function main()
     local maxlevel = define_maxlevel(x)
     message("Maximum level is: "..maxlevel)
 
+    message("Imagemagick tmp dir is : "..config.imtmp)
+
+    --os.exit()
+
 
     posix.mkdir(config.tmpdir.."/padded")
-
+    posix.mkdir(config.imtmp)
 
 message("resizing and padding image: ")
 for i=2, maxlevel do
@@ -182,7 +193,7 @@ message("splitting image into tiles:")
 for i=2, maxlevel do
     posix.mkdir(config.tmpdir.."/tiles"..i.."/")
     message("level "..i)
-    stdout("env MAGICK_TMPDIR="..config.imtmp.." convert -verbose -quality 85% -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level"..i..".jpg "..config.tmpdir.."/tiles"..i.."/tile%03d.jpg")
+    stdout("env MAGICK_TMPDIR="..config.imtmp.." nice -n "..config.nice.." convert -verbose -quality "..config.quality.." -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level"..i..".jpg "..config.tmpdir.."/tiles"..i.."/tile%03d.jpg")
 end
 
 message("creating target directory")
@@ -229,6 +240,7 @@ end
 
 message("cleaning up temporary directories...")
 stdout("rm -Rf "..config.tmpdir.."  2> /dev/null")
+stdout("rm -Rf "..config.imtmp.."  2> /dev/null")
 
 end
 
