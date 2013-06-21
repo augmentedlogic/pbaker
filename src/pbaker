@@ -217,7 +217,7 @@ local OFFSETS =  { 4, 8, 16 , 32 , 64 }
 local FOLDNUM = { 3, 7, 15 , 31 , 63 }
 local num_level = 1
 
-for level = 2, 6 do
+for level = 2, maxlevel do
     local t_offsets = OFFSETS[num_level]
     local t_foldnum = FOLDNUM[num_level]
 
