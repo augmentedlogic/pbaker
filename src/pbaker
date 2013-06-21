@@ -57,6 +57,7 @@ Options:
     -q, --quiet  be quiet
     -n, --nice   set the nice level for the imagemagick commands
     -m, --imtmp  set the imagemagick temporary directory
+    -l, --level  set a maximum zoom level manually 
     -h, --help   prints this help
     -g, --quality set the image quality ( default is 85% )
     -v, --verbose all imagemagick commands will be printed to stdout
@@ -95,6 +96,8 @@ function getargs(arg)
             config.imtmp = arg[i+1]
          elseif arg[i] == "--nice" or arg[i] == "-n" then
             config.nice = arg[i+1]
+         elseif arg[i] == "--level" or arg[i] == "-l" then
+            config.level = arg[i+1]
          elseif arg[i] == "--quality" or arg[i] == "-g" then
             config.quality = arg[i+1].."%"
          end
@@ -115,6 +118,12 @@ function getargs(arg)
                file:close()
             else
                io.write("Image not found.\n")
+               os.exit()
+            end
+         end
+         if config.level then
+            if tonumber(config.level) <2 or tonumber(config.level) > 6 then
+               io.write("level must be between 2 and 6.\n")
                os.exit()
             end
          end
@@ -172,7 +181,8 @@ function main()
     local x,y = identify(config.image)
     message("Image resolution is : "..x,y)
 
-    local maxlevel = define_maxlevel(x)
+    local maxlevel = config.level or define_maxlevel(x)
+
     message("Maximum level is: "..maxlevel)
 
     message("Imagemagick tmp dir is : "..config.imtmp)
