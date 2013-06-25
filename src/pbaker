@@ -81,7 +81,7 @@ function getargs(arg)
         os.exit()
     else
      --- we do a pretty simple version of getopt here
-     for i=1,table.getn(arg) do
+     for i=1,#arg do
          if arg[i] == "--help" or arg[i] == "-h" then
             help()
             os.exit()
