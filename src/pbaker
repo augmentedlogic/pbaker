@@ -1,4 +1,4 @@
-#!/usr/bin/lua
+#!/usr/bin/env lua
 
 --[[
 
@@ -22,8 +22,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --]]
 
-require 'posix'
-
 
 local VERSION = "0.2"
 local config = {}
@@ -43,8 +41,12 @@ return l
 end
 
 
+function mkdir(path)
+  local s = stdout("mkdir -p "..path) 
+end
+
 ---
---
+-- prints the help
 function help()
 local out = [[
 pbaker ]]..VERSION..[[  <dev@augmentedlogic.com>
@@ -69,6 +71,7 @@ end
 
 ---
 -- simple implementation of getopt
+-- and setting some defaults
 -- @param arg
 function getargs(arg)
     local config = {}
@@ -149,6 +152,9 @@ return w,h
 end
 
 
+---
+-- we calculate the maxlevel from image size
+-- @param x
 function define_maxlevel(x)
 for i, v in ipairs(SIZES) do
     if tonumber(x) < v then
@@ -160,10 +166,11 @@ end
 
 
 ---
--- either send message to stdout or be quiet
+-- either write to stdout or be quiet
+-- @param msg
 function message(msg)
     if not config.quiet then
-       io.write(msg.."\n")
+       io.write(" --> "..msg.."\n")
     end 
 end
 
@@ -174,42 +181,39 @@ function main()
 
     config = getargs(arg)
 
-    posix.mkdir(config.tmpdir)
     
-
-    ---- start image process
+    message("pbaker "..VERSION)
     local x,y = identify(config.image)
+    message("image: "..config.image)
     message("Image resolution is : "..x,y)
-
     local maxlevel = config.level or define_maxlevel(x)
+    message("Maximum level is : "..maxlevel)
+    message("Imagemagick temporary directory is : "..config.imtmp)
 
-    message("Maximum level is: "..maxlevel)
+    -- creating tmp and imagemagick tmp directories
+    mkdir(config.tmpdir)
+    mkdir(config.tmpdir.."/padded")
+    mkdir(config.imtmp)
 
-    message("Imagemagick tmp dir is : "..config.imtmp)
-
-    --os.exit()
-
-
-    posix.mkdir(config.tmpdir.."/padded")
-    posix.mkdir(config.imtmp)
-
-message("resizing and padding image: ")
+message("Step 1: resizing and padding image: ")
 for i=2, maxlevel do
     message("level "..i)
     stdout("nice -n "..config.nice.." convert "..config.image.." -resize "..SIZES[i].."x -background black -gravity center -extent "..SIZES[i].."x"..SIZES[i].." "..config.tmpdir.."/padded/level"..i..".jpg")
 end
 
-message("splitting image into tiles:")
+message("Step 2: splitting image into tiles:")
 for i=2, maxlevel do
-    posix.mkdir(config.tmpdir.."/tiles"..i.."/")
+    mkdir(config.tmpdir.."/tiles"..i.."/")
     message("level "..i)
     stdout("env MAGICK_TMPDIR="..config.imtmp.." nice -n "..config.nice.." convert -verbose -quality "..config.quality.." -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level"..i..".jpg "..config.tmpdir.."/tiles"..i.."/tile%03d.jpg")
 end
 
-message("creating target directory")
-posix.mkdir(config.target)
+   -- creating the target directory to move the tiles to
+   message("Step 3: creating target directory and moving tiles into place")
+   mkdir(config.target)
 
 
+-- we caculate the tiles to
 local function fillup(n)
    local n = tostring(n)
    if #n == 1 then
@@ -231,13 +235,13 @@ for level = 2, maxlevel do
     local t_offsets = OFFSETS[num_level]
     local t_foldnum = FOLDNUM[num_level]
 
-message("sorting tiles for level "..level)
-posix.mkdir(config.target.."/"..level.."/")
+message("moving tiles for level "..level)
+mkdir(config.target.."/"..level.."/")
 for folder = 0, t_foldnum do
 t = folder
 message("folder: "..folder)
 for i=0, t_foldnum do
-  posix.mkdir(config.target.."/"..level.."/"..folder.."/")
+  mkdir(config.target.."/"..level.."/"..folder.."/")
   cmd = "mv "..config.tmpdir.."/tiles"..level.."/tile"..fillup(t)..".jpg "..config.target..level.."/"..folder.."/"..i..".jpg"
   stdout(cmd)
   t = t + t_offsets
