@@ -1,5 +1,0 @@
-Welcome to pbaker, a commandline tool to split large panorama images 
-into tiles for use with openlayers.
-
-(c) 2013 augmented logic <dev@augmentedlogic.com>  MIT License
-
