@@ -256,7 +256,10 @@ message("cleaning up temporary directories...")
 stdout("rm -Rf "..config.tmpdir.."  2> /dev/null")
 stdout("rm -Rf "..config.imtmp.."  2> /dev/null")
 
-end
+end -- end main
 
 
+
+
+-- running main()
 main()
