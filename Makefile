@@ -4,7 +4,7 @@
 # this makefile is only used to make debian packages
 # and tar.bz2 snapshots
 
-VERSION=0.2
+VERSION=0.2.1
 PACKAGE_VERSION=1
 PROG=dpkg-deb
 SOURCE=./build
@@ -18,7 +18,7 @@ debian_package:
 	mkdir -p build/usr/share/doc/pbaker
 	mkdir -p build/usr/share/man/man8/
 	cp debian/copyright build/usr/share/doc/pbaker/copyright
-	gzip -c --best doc/pbaker.8 > build/usr/share/man/man8/pbaker.8.gz	
+	gzip -c --best doc/pbaker.8 > build/usr/share/man/man8/pbaker.8.gz
 	cp debian/control build/DEBIAN
 	cp src/pbaker build/usr/bin/
 	fakeroot $(PROG) $(FLAGS) $(SOURCE) $(DEBTARGET_all)

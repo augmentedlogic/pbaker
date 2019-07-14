@@ -135,7 +135,7 @@ function getargs(arg)
          config.imtmp = config.imtmp or "./tmpd"
          config.tmpdir = "/tmp/pbaker."..os.time()
          config.target = config.target.."/"
-         config.quality = config.quality or "85%"
+         config.quality = config.quality or "90%"
 end
 
 return config
@@ -198,14 +198,14 @@ function main()
 message("Step 1: resizing and padding image: ")
 for i=2, maxlevel do
     message("level "..i)
-    stdout("nice -n "..config.nice.." convert "..config.image.." -resize "..SIZES[i].."x -background black -gravity center -extent "..SIZES[i].."x"..SIZES[i].." "..config.tmpdir.."/padded/level"..i..".jpg")
+    stdout("env MAGICK_TMPDIR="..config.imtmp.." nice -n "..config.nice.." convert "..config.image.." -resize "..SIZES[i].."x -background black -gravity center -extent "..SIZES[i].."x"..SIZES[i].." "..config.tmpdir.."/padded/level"..i..".jpg")
 end
 
 message("Step 2: splitting image into tiles:")
 for i=2, maxlevel do
     mkdir(config.tmpdir.."/tiles"..i.."/")
     message("level "..i)
-    stdout("env MAGICK_TMPDIR="..config.imtmp.." nice -n "..config.nice.." convert -verbose -quality "..config.quality.." -limit memory 128 -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level"..i..".jpg "..config.tmpdir.."/tiles"..i.."/tile%03d.jpg")
+    stdout("env MAGICK_TMPDIR="..config.imtmp.." nice -n "..config.nice.." convert -verbose -quality "..config.quality.." -limit memory 128 -interlace none -limit map 128 -crop 256x256 "..config.tmpdir.."/padded/level"..i..".jpg "..config.tmpdir.."/tiles"..i.."/tile%03d.jpg")
 end
 
    -- creating the target directory to move the tiles to
@@ -253,8 +253,8 @@ num_level = num_level + 1
 end
 
 message("cleaning up temporary directories...")
-stdout("rm -Rf "..config.tmpdir.."  2> /dev/null")
-stdout("rm -Rf "..config.imtmp.."  2> /dev/null")
+--stdout("rm -Rf "..config.tmpdir.."  2> /dev/null")
+--stdout("rm -Rf "..config.imtmp.."  2> /dev/null")
 
 end -- end main
 
